@@ -42,24 +42,72 @@ const Index = () => {
   const runSearch = async (q: string) => {
     try {
       setLoading(true);
-      const resp = await fetch("/functions/v1/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ q }),
-      });
+      let parsed: ResultItem[] = [];
 
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => "");
-        throw new Error(text || `Request failed: ${resp.status}`);
+      // Primary: Supabase Edge Function
+      try {
+        const resp = await fetch("/functions/v1/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ q }),
+        });
+
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => "");
+          throw new Error(text || `Request failed: ${resp.status}`);
+        }
+
+        const data = await resp.json();
+        parsed = (data?.results || []).map((r: any) => ({
+          title: r.title,
+          url: r.url,
+          snippet: r.snippet,
+          score: r.score,
+        }));
+      } catch (_) {
+        // fall back below
       }
 
-      const data = await resp.json();
-      const parsed: ResultItem[] = (data?.results || []).map((r: any) => ({
-        title: r.title,
-        url: r.url,
-        snippet: r.snippet,
-        score: r.score,
-      }));
+      // Fallback: r.jina.ai Markdown proxy if Edge Function fails or returns nothing
+      if (!parsed.length) {
+        const url = `https://r.jina.ai/http://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`;
+        const mdResp = await fetch(url, { headers: { Accept: "text/markdown" } });
+        const md = await mdResp.text();
+
+        const results: ResultItem[] = [];
+
+        // First pass: DuckDuckGo redirect links that wrap real URLs
+        const re1 = /\[([^\]]+)\]\((https?:\/\/duckduckgo\.com\/l\/\?[^)]+)\)/g;
+        let m1: RegExpExecArray | null;
+        while ((m1 = re1.exec(md)) !== null) {
+          const title = stripTags(m1[1]);
+          try {
+            const u = new URL(m1[2]);
+            const uddg = u.searchParams.get("uddg");
+            const finalUrl = uddg ? decodeURIComponent(uddg) : m1[2];
+            results.push({ title, url: finalUrl, snippet: "" });
+          } catch {
+            results.push({ title, url: m1[2], snippet: "" });
+          }
+        }
+
+        // Second pass: generic markdown links (skip images and DDG assets)
+        const lines = md.split("\n");
+        for (const line of lines) {
+          const l = line.trim();
+          if (!l || l.startsWith("![")) continue;
+          const m = l.match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)/);
+          if (!m) continue;
+          const title = stripTags(m[1]);
+          const url = m[2];
+          if (/duckduckgo\.com\/html|i\.duckduckgo\.com|external-content\.duckduckgo\.com/.test(url)) continue;
+          if (!results.some((r) => r.url === url)) {
+            results.push({ title, url, snippet: "" });
+          }
+        }
+
+        parsed = results;
+      }
 
       parsed.sort((a, b) => (b.score || 0) - (a.score || 0));
       setResults(parsed);
