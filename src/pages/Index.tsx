@@ -42,34 +42,24 @@ const Index = () => {
   const runSearch = async (q: string) => {
     try {
       setLoading(true);
-      const url = `https://r.jina.ai/http://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`;
-      const resp = await fetch(url, { headers: { "Accept": "text/html" } });
-      const html = await resp.text();
+      const resp = await fetch("/functions/v1/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ q }),
+      });
 
-      const parsed: ResultItem[] = [];
-      const blocks = html.split('<div class="result');
-      for (const block of blocks) {
-        const aMatch = block.match(/<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
-        if (!aMatch) continue;
-        const hrefRaw = aMatch[1];
-        const titleHtml = aMatch[2];
-        const urlResolved = decodeDuckUrl(hrefRaw);
-        const title = stripTags(titleHtml);
-        const snippetMatch = block.match(/<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>|<div[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
-        const snippet = stripTags(snippetMatch?.[1] || (snippetMatch as any)?.[2] || "");
-        const score = scoreResult(q, title, snippet, urlResolved);
-        parsed.push({ title, url: urlResolved, snippet, score });
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        throw new Error(text || `Request failed: ${resp.status}`);
       }
 
-      if (parsed.length === 0) {
-        const re = /<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-        let m: RegExpExecArray | null;
-        while ((m = re.exec(html)) !== null) {
-          const urlResolved = decodeDuckUrl(m[1]);
-          const title = stripTags(m[2]);
-          parsed.push({ title, url: urlResolved, snippet: "" });
-        }
-      }
+      const data = await resp.json();
+      const parsed: ResultItem[] = (data?.results || []).map((r: any) => ({
+        title: r.title,
+        url: r.url,
+        snippet: r.snippet,
+        score: r.score,
+      }));
 
       parsed.sort((a, b) => (b.score || 0) - (a.score || 0));
       setResults(parsed);
