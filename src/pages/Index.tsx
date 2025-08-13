@@ -131,7 +131,7 @@ const Index = () => {
     <div className="min-h-screen">
       <header className="sticky top-0 z-10 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b">
         <div className="container mx-auto py-4">
-          <h1 className="text-xl font-semibold">Essence Search</h1>
+          <h1 className="text-xl font-semibold">DeepFind</h1>
         </div>
       </header>
       <main>
