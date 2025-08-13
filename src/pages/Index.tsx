@@ -128,10 +128,10 @@ const Index = () => {
   }, [params.get("q")]);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,hsl(var(--brand)/0.15),transparent_60%)]">
       <header className="sticky top-0 z-10 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b">
         <div className="container mx-auto py-4">
-          <h1 className="text-xl font-semibold">DeepFind</h1>
+          <h1 className="text-xl font-semibold bg-clip-text text-transparent bg-[linear-gradient(90deg,hsl(var(--brand)),hsl(var(--brand-2)))]">DeepFind</h1>
         </div>
       </header>
       <main>

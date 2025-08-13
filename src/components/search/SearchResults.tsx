@@ -55,7 +55,7 @@ const SearchResults = ({ results, loading }: SearchResultsProps) => {
           }
         })();
         return (
-          <li key={`${r.url}-${i}`} className={cn("rounded-lg border p-4 group")}> 
+          <li key={`${r.url}-${i}`} className={cn("rounded-lg border bg-card/50 p-4 group transition-colors hover:bg-card/70")}> 
             <a
               href={r.url}
               target="_blank"
